@@ -1,0 +1,13 @@
+name = "MaxEntNucleotideBiases"
+uuid = "ba169fff-afb3-4cd8-8134-b6404ad67c04"
+authors = ["Andrea Di Gioacchino"]
+version = "1.0.0-DEV"
+
+[compat]
+julia = "1.8"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
