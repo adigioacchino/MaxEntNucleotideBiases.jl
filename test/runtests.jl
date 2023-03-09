@@ -31,28 +31,29 @@ end
 # take a sequence, infer a model, do variation of all parameters, check that loglik is lower
 @testset "checks on loglikelihoods" begin
     for i in 1:3
-        println(i)
-        max_loglik_model = MaxEntNucleotideBiases.ModelFit(testseq^2, i)
-        loglik = MaxEntNucleotideBiases.ComputeLoglikelihood(testseq^2, max_loglik_model)
+        testseq5000 = (testseq^3)[1:5000] # if a sequence too short is used the fact that the gauge freedoom is exact for L->\infty
+                                          # creates some issues for the i=3 case.
+        max_loglik_model = MaxEntNucleotideBiases.ModelFit(testseq5000, i)
+        loglik = MaxEntNucleotideBiases.ComputeLoglikelihood(testseq5000, max_loglik_model)
         epsilon = 0.05
         for n in keys(max_loglik_model)
-            println(n)
+#            println(n)
             alt_model = copy(max_loglik_model)
             alt_model[n] = alt_model[n] + epsilon
-            alt_loglik = MaxEntNucleotideBiases.ComputeLoglikelihood(testseq^2, alt_model)
+            alt_loglik = MaxEntNucleotideBiases.ComputeLoglikelihood(testseq5000, alt_model)
             if i == 1
                 @test loglik > alt_loglik skip = true # does not work because Z=1 is hardcoded, and only holds for a specific gauge
             else
-                println(loglik - alt_loglik)
+#                println(loglik - alt_loglik)
                 @test loglik > alt_loglik 
             end
             alt_model = copy(max_loglik_model)
             alt_model[n] = alt_model[n] - epsilon
-            alt_loglik = MaxEntNucleotideBiases.ComputeLoglikelihood(testseq^2, alt_model)
+            alt_loglik = MaxEntNucleotideBiases.ComputeLoglikelihood(testseq5000, alt_model)
             if i == 1
                 @test loglik > alt_loglik skip = true # does not work because Z=1 is hardcoded, and only holds for a specific gauge
             else
-                println(loglik - alt_loglik)
+#                println(loglik - alt_loglik)
                 @test loglik > alt_loglik 
             end
         end

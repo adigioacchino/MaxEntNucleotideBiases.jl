@@ -60,7 +60,7 @@ used to solve the system of equations.
 """
 function ModelFit(seqs::Vector{String}, Lmotifs::Int, Lmodel::Union{Int,Missing}=missing; 
                   add_pseudocount::Bool=false, tolerance::Float64=0.01, max_iter::Int=100, 
-                  verbose::Bool=true, fast::Bool=false)
+                  verbose::Bool=false, fast::Bool=false)
     seqs_dna = _PreprocessSeqs(seqs)
     # compute sequence length
     if ismissing(Lmodel)
@@ -98,7 +98,8 @@ function ModelFit(seqs::Vector{String}, Lmotifs::Int, Lmodel::Union{Int,Missing}
     independent_motifs = all_motifs[gaugemask]
     dependent_motifs = all_motifs[.!gaugemask]
     mp_dep = Dict(zip(dependent_motifs, zeros(length(dependent_motifs))))
-    
+    #println("Indep motifs:", independent_motifs)
+
     # compute n_obs for each non-masked motif, add pseudocounts if add_pseudocount
     n_obs = _ComputeNObs(seqs_dna, independent_motifs, L)
     if add_pseudocount

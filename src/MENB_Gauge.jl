@@ -7,7 +7,9 @@ This function returns a Array{Bool} corresponding to motifs that have to be infe
 all motifs containing Ts are fixed to 0 thanks to gauge transformations.
 """
 function GaugeMaskVariables(motifs::Vector{String})
-    return [!occursin("T", m) for m in motifs]
+    #return [!occursin("T", m) for m in motifs]
+    #return [(!occursin("T", m) | (length(m)==3 && (m in ["ATG", "TTC", "GTG", "ATT", "GTA", "GTC", "TTT", "CTC"]))) for m in motifs]
+    return [(!occursin("T", m) | (length(m)==3 && m[1] != 'T' && m[2] == 'T' && m[3] != 'T')) for m in motifs]
 end
 
 
