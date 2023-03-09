@@ -1,11 +1,11 @@
 # For now only allow to infer: fields-only, pairs, 3points (by giving an integer to the main function!)
 
 """
-    _preprocess_seqs(seqs_in::Vector{String})
+    _PreprocessSeqs(seqs_in::Vector{String})
 Pre-process the vector of sequences `seqs_in`, so that sequences only contains letters A, C, G, T.
 The pre-processed sequence vector is the returned.
 """
-function _preprocess_seqs(seqs_in::Vector{String})
+function _PreprocessSeqs(seqs_in::Vector{String})
     seqs_out = [replace(s, "U" => "T") for s in seqs_in]
     for s in seqs_out
         unique_nt_counts = sum([count(m, s) for m in dna_alphabet])
@@ -19,12 +19,12 @@ end
     
     
 """
-    _compute_n_obs(seqs::Vector{String}, independent_motifs::Vector{String}, L::Int)
+    _ComputeNObs(seqs::Vector{String}, independent_motifs::Vector{String}, L::Int)
 For each motif in `independent_motifs`, compute the number of observed motifs in each sequence
 in `seqs`, then divide by the sequence length, take the average of these intensive fractions
 over the sequences, and multiply by the model length L.
 """
-function _compute_n_obs(seqs::Vector{String}, independent_motifs::Vector{String}, L::Int)
+function _ComputeNObs(seqs::Vector{String}, independent_motifs::Vector{String}, L::Int)
     Lseqs = length.(seqs)
     return L .* [mean(count.(m, seqs, overlap=true) ./ Lseqs) for m in independent_motifs]    
 end
@@ -61,7 +61,7 @@ used to solve the system of equations.
 function ModelFit(seqs::Vector{String}, Lmotifs::Int, Lmodel::Union{Int,Missing}=missing; 
                   add_pseudocount::Bool=false, tolerance::Float64=0.01, max_iter::Int=100, 
                   verbose::Bool=true, fast::Bool=false)
-    seqs_dna = _preprocess_seqs(seqs)
+    seqs_dna = _PreprocessSeqs(seqs)
     # compute sequence length
     if ismissing(Lmodel)
         if all(length.(seqs_dna) .== length(seqs_dna[1]))
@@ -100,20 +100,20 @@ function ModelFit(seqs::Vector{String}, Lmotifs::Int, Lmodel::Union{Int,Missing}
     mp_dep = Dict(zip(dependent_motifs, zeros(length(dependent_motifs))))
     
     # compute n_obs for each non-masked motif, add pseudocounts if add_pseudocount
-    n_obs = _compute_n_obs(seqs_dna, independent_motifs, L)
+    n_obs = _ComputeNObs(seqs_dna, independent_motifs, L)
     if add_pseudocount
         n_obs = [x+1 for x in n_obs]
     end   
     
     # prepare for inference: "closure" of eval_logZ -> here the sorting of x is important, 
     #    it is the one defined at the definition of independent_motifs 
-    function closed_eval_log_Z(x::Vector{Float64})
+    function ClosedEvalLogZ(x::Vector{Float64})
         mp_ind = Dict(zip(independent_motifs, x))
         mp = merge(mp_ind, mp_dep)
         if fast
-            return eval_log_Zfast(mp, L)
+            return EvalLogZFast(mp, L)
         else
-            return eval_log_Z(mp, L)    
+            return EvalLogZ(mp, L)    
         end
     end
     
@@ -137,8 +137,8 @@ function ModelFit(seqs::Vector{String}, Lmotifs::Int, Lmodel::Union{Int,Missing}
             println("Starting iteration $(l)...")
             flush(stdout)
         end
-        ns = FiniteDiff.finite_difference_gradient(closed_eval_log_Z, vars)
-        dn = FiniteDiff.finite_difference_hessian(closed_eval_log_Z, vars)
+        ns = FiniteDiff.finite_difference_gradient(ClosedEvalLogZ, vars)
+        dn = FiniteDiff.finite_difference_hessian(ClosedEvalLogZ, vars)
         delta = inv(dn) * (n_obs .- ns)
         if maximum(abs.(n_obs .- ns)) <= tolerance
             break

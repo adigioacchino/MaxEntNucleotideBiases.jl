@@ -1,8 +1,8 @@
 module MaxEntNucleotideBiases
 
     using LinearAlgebra
-    using FiniteDiff
     using Statistics
+    using FiniteDiff
 
     const dna_alphabet = ["A", "C", "G", "T"]
     const dna2num_alphabet = Dict(["A" => 1, "C" => 2, "G" => 3, "T" => 4])

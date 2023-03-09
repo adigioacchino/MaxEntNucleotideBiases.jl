@@ -12,12 +12,12 @@ end
 
 
 """
-    zerosum_gauge(model_pars::Dict{String, Float64})
+    ZerosumGauge(model_pars::Dict{String, Float64})
 This function takes as input a dictionary describing the parmeters of a model
 and changes the gauge so that one and two point parameters are "zero-sum". It
 does not modify three point parameters.
 """
-function zerosum_gauge(model_pars::Dict{String, Float64})
+function ZerosumGauge(model_pars::Dict{String, Float64})
     new_pars = copy(model_pars)
     kmax = maximum(length.(keys(new_pars)))
     ##############
