@@ -154,6 +154,6 @@ end
 
 function ModelFit(seq::String, Lmotifs::Int, Lmodel::Union{Int,Missing}=missing; 
                   add_pseudocount::Bool=false, tolerance::Float64=0.01, max_iter::Int=100, 
-                  verbose::Bool=true)
+                  verbose::Bool=false)
     return ModelFit([seq], Lmotifs, Lmodel; add_pseudocount, tolerance, max_iter, verbose)
 end
