@@ -79,8 +79,7 @@ function ModelFit(seqs::Vector{String}, Lmotifs::Int, Lmodel::Union{Int,Missing}
     if Lmotifs == 1 # only in this case, the gauge will be set so that the sum of the exp of the fields is 1
         Lseqs = length.(seqs)
         n_freqs = [mean(count.(m, seqs_dna, overlap=true) ./ Lseqs) for m in dna_alphabet]
-        res = Dict(zip(dna_alphabet, log.(n_freqs)))
-        return res
+        return NucleotideModel(dna_alphabet, log.(n_freqs))
     elseif Lmotifs == 2
         all_motifs = [[a for a in dna_alphabet]; 
                       [a*b for a in dna_alphabet for b in dna_alphabet]
@@ -125,8 +124,8 @@ function ModelFit(seqs::Vector{String}, Lmotifs::Int, Lmodel::Union{Int,Missing}
         vars = zeros(sum(gaugemask))
         [vars[i] = log(n_obs[i] / L) - log(n_obs_T / L) for i in 1:3]
     elseif Lmotifs == 3 # use as starting point the solution with Lmotifs == 2
-        L2ress = ModelFit(seqs_dna, 2, L; add_pseudocount=true,
-                          tolerance=0.01, max_iter=100, verbose=false, fast=true)
+        L2ress = ForcesDict(ModelFit(seqs_dna, 2, L; add_pseudocount=true,
+                            tolerance=0.01, max_iter=100, verbose=false, fast=true))
         independent_motifs2 = [m for m in independent_motifs if length(m) < 3]
         vars = [[L2ress[m] for m in independent_motifs2];
                 zeros(length(independent_motifs)-length(independent_motifs2))]
@@ -149,7 +148,8 @@ function ModelFit(seqs::Vector{String}, Lmotifs::Int, Lmodel::Union{Int,Missing}
     
     # format result as a Dict{String, Float64}, including the motifs set to 0 via gauge
     res_1 = Dict(zip(independent_motifs, vars))
-    return merge(res_1, mp_dep)
+    res_dict = merge(res_1, mp_dep)
+    return NucleotideModel(all_motifs, [res_dict[m] for m in all_motifs])
 end
 
 function ModelFit(seq::String, Lmotifs::Int, Lmodel::Union{Int,Missing}=missing; 

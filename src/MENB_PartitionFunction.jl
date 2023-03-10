@@ -109,3 +109,22 @@ function EvalLogZFast(model_pars::Dict{String, Float64}, L::Int)
     return L * log(maximum(real.(eigvals(TM))))
 end
 
+
+"""
+    EvalLogZFast(model_pars::Dict{String, Float64}, L::Int, fast::Bool=false)
+    Compute the partition function of a model of length L.
+    If fast==false, use the transfer matrix method. 
+    If fast==true
+        Compute the partition function of a model of length L by taking the real part of
+the largest eigenvalue of the transfer matrix. model_pars is a dict of 
+motif => parameter in the Hamiltonian.
+"""
+function EvalLogZ(model::NucleotideModel, L::Int, fast::Bool=false)
+    model_pars = ForcesDict(model)
+    if fast
+        res = EvalLogZFast(model_pars, L)
+    else
+        res = EvalLogZ(model_pars, L)
+    end
+    return res
+end

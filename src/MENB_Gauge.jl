@@ -12,14 +12,14 @@ end
 
 
 """
-    ZerosumGauge(model_pars::Dict{String, Float64})
+    ZerosumGauge(model_pars::NucleotideModel)
 This function takes as input a dictionary describing the parmeters of a model
-and changes the gauge so that one and two point parameters are "zero-sum". It
-does not modify three point parameters.
+and changes the gauge into the "zero-sum" gauge.
 """
-function ZerosumGauge(model_pars::Dict{String, Float64})
-    new_pars = copy(model_pars)
-    kmax = maximum(length.(keys(new_pars)))
+function ZerosumGauge(model::NucleotideModel)
+    model_pars = ForcesDict(model)
+    new_pars = ForcesDict(model)
+    kmax = model.Lmotifs
     ##############
     #### k=3
     ##############
@@ -49,5 +49,5 @@ function ZerosumGauge(model_pars::Dict{String, Float64})
     ##############
     C = - mean([new_pars[nt] for nt in dna_alphabet])
     [new_pars[nt] += C for nt in dna_alphabet]
-    return new_pars
+    return NucleotideModel(model.motifs, [new_pars[m] for m in model.motifs])
 end
