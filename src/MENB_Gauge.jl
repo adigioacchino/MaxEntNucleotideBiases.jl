@@ -7,8 +7,6 @@ This function returns a Array{Bool} corresponding to motifs that have to be infe
 all motifs containing Ts are fixed to 0 thanks to gauge transformations.
 """
 function GaugeMaskVariables(motifs::Vector{String})
-    #return [!occursin("T", m) for m in motifs]
-    #return [(!occursin("T", m) | (length(m)==3 && (m in ["ATG", "TTC", "GTG", "ATT", "GTA", "GTC", "TTT", "CTC"]))) for m in motifs]
     return [(!occursin("T", m) | (length(m)==3 && m[1] != 'T' && m[2] == 'T' && m[3] != 'T')) for m in motifs]
 end
 
@@ -23,11 +21,22 @@ function ZerosumGauge(model_pars::Dict{String, Float64})
     new_pars = copy(model_pars)
     kmax = maximum(length.(keys(new_pars)))
     ##############
+    #### k=3
+    ##############
+    if kmax == 3
+        mot3s = [x for x in keys(model_pars) if length(x)==3]
+        C1s = [- mean([new_pars[x] for x in mot3s if (x[2:3] == m3[2:3])]) for m3 in mot3s]
+        [new_pars[mot3s[i]] += c1 for (i, c1) in enumerate(C1s)]
+        [new_pars[mot3s[i][2:3]] -= c1/4 for (i, c1) in enumerate(C1s)]
+        C3s = [- mean([new_pars[x] for x in mot3s if (x[1:2] == m3[1:2])]) for m3 in mot3s]
+        [new_pars[mot3s[i]] += c3 for (i, c3) in enumerate(C3s)]
+        [new_pars[mot3s[i][1:2]] -= c3/4 for (i, c3) in enumerate(C3s)]
+    end
+    ##############
     #### k=2
     ##############
     if kmax >= 2
         mot2s = [x for x in keys(model_pars) if length(x)==2]    
-        # compute Cs & modify
         C1s = [- mean([new_pars[x] for x in mot2s if (x[1] == m2[1])]) for m2 in mot2s]
         [new_pars[mot2s[i]] += c1 for (i, c1) in enumerate(C1s)]
         [new_pars[string(mot2s[i][1])] -= c1/4 for (i, c1) in enumerate(C1s)]

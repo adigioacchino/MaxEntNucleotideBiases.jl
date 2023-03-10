@@ -43,7 +43,6 @@ nts = ["A","C","G","T"]
             loglik = MaxEntNucleotideBiases.ComputeLoglikelihood(testseq5000, max_loglik_model)
             epsilon = 0.05
             for n in keys(max_loglik_model)
-    #            println(n)
                 alt_model = copy(max_loglik_model)
                 alt_model[n] = alt_model[n] + epsilon
                 alt_loglik = MaxEntNucleotideBiases.ComputeLoglikelihood(testseq5000, alt_model)
@@ -71,7 +70,7 @@ nts = ["A","C","G","T"]
     end
 
     # test multiseq: take a sequence, split and check that the result is consistent
-    @testset verbose=true "multiseq inference" begin
+    @testset "multiseq inference" begin
         for i in 1:3
             # test if using many times the same sequences give the same result
             max_loglik_model = max_loglik_mods[i]
@@ -88,4 +87,31 @@ nts = ["A","C","G","T"]
         end
     end
 
+    # test zero-sum gauge 
+    @testset "change gauge into zerosum" begin
+        for i in 1:3
+            mod = max_loglik_mods[i]
+            mod_zg = MaxEntNucleotideBiases.ZerosumGauge(mod)
+            ll1 = MaxEntNucleotideBiases.ComputeLoglikelihood(testseq5000, mod) 
+            ll2 = MaxEntNucleotideBiases.ComputeLoglikelihood(testseq5000, mod_zg)
+            @test (ll1 - ll2) / ll1 ≈ 0. atol=1e-3 skip=(i==1) # i=1 does not work because Z=1 is hardcoded for 1-pt models, and only holds for a specific gauge
+            mot1s = [x for x in keys(mod) if length(x)==1] 
+            mot2s = [x for x in keys(mod) if length(x)==2]
+            mot3s = [x for x in keys(mod) if length(x)==3] 
+            @test sum([mod_zg[x] for x in mot1s]) ≈ 0. atol=1e-9
+            if i >= 2
+                @test sum([mod_zg[x] for x in mot2s]) ≈ 0. atol=1e-9
+                @test maximum(abs.([mean([mod_zg[x] for x in mot2s if (x[1] == m2[1])]) for m2 in mot2s])) ≈ 0. atol=1e-9
+                @test maximum(abs.([mean([mod_zg[x] for x in mot2s if (x[2] == m2[2])]) for m2 in mot2s])) ≈ 0. atol=1e-9
+            end
+            if i >= 3
+                @test sum([mod_zg[x] for x in mot3s]) ≈ 0. atol=1e-9
+                @test maximum(abs.([mean([mod_zg[x] for x in mot3s if (x[1:2] == m3[1:2])]) for m3 in mot3s])) ≈ 0. atol=1e-9
+                @test maximum(abs.([mean([mod_zg[x] for x in mot3s if (x[2:3] == m3[2:3])]) for m3 in mot3s])) ≈ 0. atol=1e-9
+                @test maximum(abs.([mean([mod_zg[x] for x in mot3s if (x[1] == m3[1])]) for m3 in mot3s])) ≈ 0. atol=1e-9
+                @test maximum(abs.([mean([mod_zg[x] for x in mot3s if (x[2] == m3[2])]) for m3 in mot3s])) ≈ 0. atol=1e-9
+                @test maximum(abs.([mean([mod_zg[x] for x in mot3s if (x[3] == m3[3])]) for m3 in mot3s])) ≈ 0. atol=1e-9
+            end
+        end
+    end
 end
