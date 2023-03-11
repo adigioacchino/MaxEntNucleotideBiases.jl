@@ -136,18 +136,18 @@ function ModelFit(seqs::Vector{String}, Lmotifs::Int, Lmodel::Union{Int,Missing}
             flush(stdout)
         end
         ns = FiniteDiff.finite_difference_gradient(ClosedEvalLogZ, vars)
-        dn = FiniteDiff.finite_difference_hessian(ClosedEvalLogZ, vars)
-        delta = inv(dn) * (n_obs .- ns)
         if maximum(abs.(n_obs .- ns)) <= tolerance
             break
         end
+        dn = FiniteDiff.finite_difference_hessian(ClosedEvalLogZ, vars)
+        delta = inv(dn) * (n_obs .- ns)
         vars .+= delta
     end
 
     # format result as a NucleotideModel, including the motifs set to 0 via gauge
     mots = [independent_motifs; dependent_motifs]
     fors = [vars; zeros(length(dependent_motifs))]
-    return NucleotideModel(mots, fors)
+    return ZerosumGauge(NucleotideModel(mots, fors))
 end
 
 function ModelFit(seq::String, Lmotifs::Int, Lmodel::Union{Int,Missing}=missing; 
