@@ -31,12 +31,9 @@ end
     
     
 """
-    ModelFit(seqs::Vector{String}, Lmotifs::Int, Lmodel::Union{Int,Missing}=missing; 
+    ModelFit(seqs::Union{Vector{String}, String}, Lmotifs::Int, Lmodel::Union{Int,Missing}=missing; 
                   add_pseudocount::Bool=false, tolerance::Float64=0.01, max_iter::Int=100, 
-                  verbose::Bool=false, fast::Bool=false)
-    ModelFit(seqs::String, Lmotifs::Int, Lmodel::Union{Int,Missing}=missing; 
-                  add_pseudocount::Bool=false, tolerance::Float64=0.01, max_iter::Int=100, 
-                  verbose::Bool=false, fast::Bool=false)
+                  verbose::Bool=false, fast::Union{Bool,String}="auto", ZS_gauge::Bool=true)
 
 Fit the model parameters, which are:
 - only 1-point functions (fields) if Lmotifs==1;
@@ -53,15 +50,20 @@ nucleotides and dinucleotides.
 
 If `fast`, the partition function is estimated through the top eigenvalue of the
 transfer matrix alone (much faster, but slightly less precise, expecially
-for short sequences).
+for short sequences). The default value, "auto", automatically uses the fast 
+evaluation for long sequences.
 
-Finally, `tolerance` and `max_iter` are parameters for the Newton-Raphson algorithm 
+`tolerance` and `max_iter` are parameters for the Newton-Raphson algorithm 
 used to solve the system of equations.
+
+`ZS_gauge` specifies whether the result has to be put in the zero sum gauge
+before being returned.
 """
-function ModelFit(seqs::Vector{String}, Lmotifs::Int, Lmodel::Union{Int,Missing}=missing; 
+function ModelFit(seqs::Union{Vector{String}, String}, Lmotifs::Int, Lmodel::Union{Int,Missing}=missing; 
                   add_pseudocount::Bool=false, tolerance::Float64=0.01, max_iter::Int=100, 
-                  verbose::Bool=false, fast::Bool=false)
-    seqs_dna = _PreprocessSeqs(seqs)
+                  verbose::Bool=false, fast::Union{Bool,String}="auto", ZS_gauge::Bool=true)
+    (typeof(seqs) == String) ? (pre_seqs_dna = [seqs]) : (pre_seqs_dna = seqs)
+    seqs_dna = _PreprocessSeqs(pre_seqs_dna)
     # compute sequence length
     if ismissing(Lmodel)
         if all(length.(seqs_dna) .== length(seqs_dna[1]))
@@ -75,6 +77,16 @@ function ModelFit(seqs::Vector{String}, Lmotifs::Int, Lmodel::Union{Int,Missing}
         L = Lmodel
     end
     
+    # deal with pre_fast=auto
+    if typeof(fast) == String && fast != "auto"
+        println("`fast` must be a Bool, or the string 'auto'.")
+        return nothing
+    elseif fast == "auto"
+        (L > 5000) ? (fast_bool = true) : (fast_bool = false)
+    else
+        fast_bool = fast
+    end
+
     # compute all motifs and gaugemaks array
     if Lmotifs == 1 # only in this case, the gauge will be set so that the sum of the exp of the fields is 1
         Lseqs = length.(seqs)
@@ -108,7 +120,7 @@ function ModelFit(seqs::Vector{String}, Lmotifs::Int, Lmodel::Union{Int,Missing}
     function ClosedEvalLogZ(x::Vector{Float64})
         mots = [independent_motifs; dependent_motifs]
         fors = [x; zeros(length(dependent_motifs))]
-        if fast
+        if fast_bool
             return EvalLogZFast(NucleotideModel(mots, fors), L)
         else
             return EvalLogZ(NucleotideModel(mots, fors), L)    
@@ -147,12 +159,11 @@ function ModelFit(seqs::Vector{String}, Lmotifs::Int, Lmodel::Union{Int,Missing}
     # format result as a NucleotideModel, including the motifs set to 0 via gauge
     mots = [independent_motifs; dependent_motifs]
     fors = [vars; zeros(length(dependent_motifs))]
-    return ZerosumGauge(NucleotideModel(mots, fors))
-end
+    if ZS_gauge
+        res = ZerosumGauge(NucleotideModel(mots, fors))
+    else
+        res = NucleotideModel(mots, fors)
+    end
 
-function ModelFit(seq::String, Lmotifs::Int, Lmodel::Union{Int,Missing}=missing; 
-                  add_pseudocount::Bool=false, tolerance::Float64=0.01, max_iter::Int=100, 
-                  verbose::Bool=false, fast::Bool=false)
-    return ModelFit([seq], Lmotifs, Lmodel; 
-                    add_pseudocount, tolerance, max_iter, verbose, fast)
+    return res
 end

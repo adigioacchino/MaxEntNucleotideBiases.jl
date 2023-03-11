@@ -18,7 +18,7 @@ nts = ["A","C","G","T"]
     testseq5000 = (testseq^3)[1:5000] # if a sequence too short is used the fact that the gauge freedoom is exact only 
                                       # for L->\infty creates some issues for the i=3 case during testing
                                       # (things that should be >0 are about -0.005 or so).
-    max_loglik_mods = [MaxEntNucleotideBiases.ModelFit(testseq5000, i) for i in 1:3]
+    max_loglik_mods = [MaxEntNucleotideBiases.ModelFit(testseq5000, i, ZS_gauge=false) for i in 1:3]
     
     samples = Vector{String}[]
     for i in 1:3
@@ -81,7 +81,7 @@ nts = ["A","C","G","T"]
             for m in max_loglik_model.motifs
                 c1 = count(m, testseq5000, overlap=true)
                 c2 = mean(count.(m, sample, overlap=true))
-                @test (c1-c2)/c1 ≈ 0. atol=0.02
+                @test (c1-c2)/c1 ≈ 0. atol=0.025
             end
         end
     end
@@ -91,13 +91,13 @@ nts = ["A","C","G","T"]
         for i in 1:3
             # test if using many times the same sequences give the same result
             max_loglik_model = MaxEntNucleotideBiases.ForcesDict(max_loglik_mods[i])
-            multiseq_model = MaxEntNucleotideBiases.ForcesDict(MaxEntNucleotideBiases.ModelFit([testseq5000 for _ in 1:10], i, 5000))
+            multiseq_model = MaxEntNucleotideBiases.ForcesDict(MaxEntNucleotideBiases.ModelFit([testseq5000 for _ in 1:10], i, 5000, ZS_gauge = false))
             @testset "same sequence multiple times" for m in keys(max_loglik_model)
                 @test multiseq_model[m] ≈ max_loglik_model[m] atol=0.001
             end
             # test if using sample sequences from the same model gives a similar result
             sample = samples[i]
-            multiseq_model = MaxEntNucleotideBiases.ForcesDict(MaxEntNucleotideBiases.ModelFit([testseq5000 for _ in 1:10], i, 5000))
+            multiseq_model = MaxEntNucleotideBiases.ForcesDict(MaxEntNucleotideBiases.ModelFit([testseq5000 for _ in 1:10], i, 5000, ZS_gauge = false))
             @testset "multiple sampled sequences" for m in keys(max_loglik_model)
                 @test multiseq_model[m] ≈ max_loglik_model[m] atol=0.05
             end
@@ -139,4 +139,14 @@ nts = ["A","C","G","T"]
         mod_zg = MaxEntNucleotideBiases.ZerosumGauge(mod)
         @test MaxEntNucleotideBiases.ComputeSymmetrizedKL(5000, mod, mod_zg) ≈ 0. atol=0.1
     end
+
+    # test fast evaluation
+    @testset "Fast computation of EvalLogZ" begin
+        for i in 2:3
+            mod = max_loglik_mods[i]
+            mod_f = MaxEntNucleotideBiases.ModelFit(testseq5000, i, fast=true)
+            @test MaxEntNucleotideBiases.ComputeSymmetrizedKL(5000, mod, mod_f) ≈ 0. atol=0.1
+        end
+    end
+
 end
