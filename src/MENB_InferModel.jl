@@ -1,7 +1,6 @@
-# For now only allow to infer: fields-only, pairs, 3points (by giving an integer to the main function!)
-
 """
     _PreprocessSeqs(seqs_in::Vector{String})
+
 Pre-process the vector of sequences `seqs_in`, so that sequences only contains letters A, C, G, T.
 The pre-processed sequence vector is the returned.
 """
@@ -20,6 +19,7 @@ end
     
 """
     _ComputeNObs(seqs::Vector{String}, independent_motifs::Vector{String}, L::Int)
+    
 For each motif in `independent_motifs`, compute the number of observed motifs in each sequence
 in `seqs`, then divide by the sequence length, take the average of these intensive fractions
 over the sequences, and multiply by the model length L.
@@ -32,11 +32,11 @@ end
     
 """
     ModelFit(seqs::Vector{String}, Lmotifs::Int, Lmodel::Union{Int,Missing}=missing; 
-             add_pseudocount::Bool=false, tolerance::Float64=0.01, max_iter::Int=100, 
-             verbose::Bool=true)
-    ModelFit(seq::String, Lmotifs::Int, Lmodel::Union{Int,Missing}=missing; 
-             add_pseudocount::Bool=false, tolerance::Float64=0.01, max_iter::Int=100, 
-             verbose::Bool=true)
+                  add_pseudocount::Bool=false, tolerance::Float64=0.01, max_iter::Int=100, 
+                  verbose::Bool=false, fast::Bool=false)
+    ModelFit(seqs::String, Lmotifs::Int, Lmodel::Union{Int,Missing}=missing; 
+                  add_pseudocount::Bool=false, tolerance::Float64=0.01, max_iter::Int=100, 
+                  verbose::Bool=false, fast::Bool=false)
 
 Fit the model parameters, which are:
 - only 1-point functions (fields) if Lmotifs==1;
@@ -96,8 +96,6 @@ function ModelFit(seqs::Vector{String}, Lmotifs::Int, Lmodel::Union{Int,Missing}
     gaugemask = GaugeMaskVariables(all_motifs)
     independent_motifs = all_motifs[gaugemask]
     dependent_motifs = all_motifs[.!gaugemask]
-    mp_dep = Dict(zip(dependent_motifs, zeros(length(dependent_motifs))))
-    #println("Indep motifs:", independent_motifs)
 
     # compute n_obs for each non-masked motif, add pseudocounts if add_pseudocount
     n_obs = _ComputeNObs(seqs_dna, independent_motifs, L)
@@ -108,12 +106,12 @@ function ModelFit(seqs::Vector{String}, Lmotifs::Int, Lmodel::Union{Int,Missing}
     # prepare for inference: "closure" of eval_logZ -> here the sorting of x is important, 
     #    it is the one defined at the definition of independent_motifs 
     function ClosedEvalLogZ(x::Vector{Float64})
-        mp_ind = Dict(zip(independent_motifs, x))
-        mp = merge(mp_ind, mp_dep)
+        mots = [independent_motifs; dependent_motifs]
+        fors = [x; zeros(length(dependent_motifs))]
         if fast
-            return EvalLogZFast(mp, L)
+            return EvalLogZFast(NucleotideModel(mots, fors), L)
         else
-            return EvalLogZ(mp, L)    
+            return EvalLogZ(NucleotideModel(mots, fors), L)    
         end
     end
     
@@ -145,15 +143,16 @@ function ModelFit(seqs::Vector{String}, Lmotifs::Int, Lmodel::Union{Int,Missing}
         end
         vars .+= delta
     end
-    
-    # format result as a Dict{String, Float64}, including the motifs set to 0 via gauge
-    res_1 = Dict(zip(independent_motifs, vars))
-    res_dict = merge(res_1, mp_dep)
-    return NucleotideModel(all_motifs, [res_dict[m] for m in all_motifs])
+
+    # format result as a NucleotideModel, including the motifs set to 0 via gauge
+    mots = [independent_motifs; dependent_motifs]
+    fors = [vars; zeros(length(dependent_motifs))]
+    return NucleotideModel(mots, fors)
 end
 
 function ModelFit(seq::String, Lmotifs::Int, Lmodel::Union{Int,Missing}=missing; 
                   add_pseudocount::Bool=false, tolerance::Float64=0.01, max_iter::Int=100, 
-                  verbose::Bool=false)
-    return ModelFit([seq], Lmotifs, Lmodel; add_pseudocount, tolerance, max_iter, verbose)
+                  verbose::Bool=false, fast::Bool=false)
+    return ModelFit([seq], Lmotifs, Lmodel; 
+                    add_pseudocount, tolerance, max_iter, verbose, fast)
 end

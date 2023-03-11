@@ -3,6 +3,7 @@
 
 """
     GaugeMaskVariables(motifs::Vector{String})
+
 This function returns a Array{Bool} corresponding to motifs that have to be inferred after
 all motifs containing Ts are fixed to 0 thanks to gauge transformations.
 """
@@ -13,6 +14,7 @@ end
 
 """
     ZerosumGauge(model_pars::NucleotideModel)
+    
 This function takes as input a dictionary describing the parmeters of a model
 and changes the gauge into the "zero-sum" gauge.
 """

@@ -1,5 +1,6 @@
 """
     ComputeMinusEnergy(seq::String, model::NucleotideModel)
+
 Given a sequence `seq` and the model parameters `model_pars`, 
 compute (minus) the energy of this sequence.
 """
@@ -26,6 +27,7 @@ end
 
 """
     ComputeLoglikelihood(seq::String, model::NucleotideModel; logZ=missing)
+
 Given a sequence `seq` and the model parameters `model_pars`,
 compute the log-likelihood (energy minus log of Z) of this sequence.
 logZ can be passed directly if pre-computed, otherwise is it computed each time this function is called.
@@ -48,8 +50,9 @@ end
 
 """
     _MCStep!(L::Int, mlk::Int, curr_seq::Vector{String}, 
-              model::NucleotideModel, 
-              beta::Float64)
+                  model::NucleotideModel, 
+                  beta::Float64)
+              
 Performs a MonteCarlo step; L is curr_seq length, mlk is the maximum length of the
 motifs considered, curr_seq is the starting sequence, model specifies the model, 
 and beta is the inverse temperature.
@@ -78,8 +81,9 @@ end
 
 """
     MetropolisSampling(L::Int, model::NucleotideModel; 
-                        beta::Float64=1.0, Nsamples::Int=1, Nsteps::Int=1, Ntherm::Int=L*10, 
-                        startseq=missing)
+                             beta::Float64=1.0, Nsamples::Int=1, Nsteps::Int=1, Ntherm::Int=L*10, 
+                             startseq::Union{String,Missing}=missing)
+
 Sample Nsample sequences of length L at inverse temperature beta using a model given in model. 
 Ntherm is the number of MonteCarlo steps done before starting collecting sequences, 
 startseq is the starting sequence.
@@ -115,33 +119,33 @@ end
 
 """
     ComputeEntropy(L::Int, model::NucleotideModel; fast::Bool=false)
+
 Compute the entropy of the model with parameters `model_pars` and having length `L`.
 The computation exploit the derivatives of the partition function, that can be
 approximated to make it faster (using `fast=true`), although it should be very quick
 in any case.
 """
 function ComputeEntropy(L::Int, model::NucleotideModel; fast::Bool=false)
-    model_pars = ForcesDict(model)
     function lambda_EvalLogZ(lambda::Float64)
-        mp = copy(model_pars)
-        [mp[k] *= lambda for k in keys(mp)]
+        model_mod = NucleotideModel(model.motifs, model.forces .* lambda)
         if fast
-            return EvalLogZFast(mp, L)
+            return EvalLogZFast(model_mod, L)
         else
-            return EvalLogZ(mp, L)    
+            return EvalLogZ(model_mod, L)    
         end
     end
     ave_E = -FiniteDiff.finite_difference_derivative(lambda_EvalLogZ, 1.)
     if fast
-        return ave_E + EvalLogZFast(model_pars, L)
+        return ave_E + EvalLogZFast(model, L)
     else
-        return ave_E + EvalLogZ(model_pars, L)    
+        return ave_E + EvalLogZ(model, L)    
     end
 end
 
 
 """
     ComputePressure(L::Int, model::NucleotideModel; fast::Bool=false)
+    
 The pressure on a genome can be quantified as how the genome is different from a random
 uniform one. Therefore, this function compute the difference in the entropy of a random
 uniform model and the model described with `model_pars`, with lenght `L`, rescaled with
@@ -155,43 +159,40 @@ end
 
 """
     ComputeSymmetrizedKL(L::Int, model1::NucleotideModel, 
-                         model2::NucleotideModel::NucleotideModel; fast::Bool=false)
+                        model2::NucleotideModel; fast::Bool=false)
+
 Compute the symmetrized version of the Kullback-Leibler divergence between the distributions
 defined by `model1_pars` and `model2_pars`. Setting `fast=true` allows for a quicker estimation 
 of the KL divergence (it can be useful for extremely large sequences).
 """
 function ComputeSymmetrizedKL(L::Int, model1::NucleotideModel, 
                         model2::NucleotideModel; fast::Bool=false)
-    model1_pars = ForcesDict(model1)
-    model2_pars = ForcesDict(model2)
     function LambdaEvalLogZ12(lambda::Float64)
-        mp = copy(model1_pars)
-        [mp[k] += lambda*model2_pars[k] for k in keys(mp)]
+        model1_mod = NucleotideModel(model1.motifs, model1.forces .+ model2.forces .* lambda)
         if fast
-            return EvalLogZFast(mp, L)
+            return EvalLogZFast(model1_mod, L)
         else
-            return EvalLogZ(mp, L)    
+            return EvalLogZ(model1_mod, L)    
         end
     end
     function LambdaEvalLogZ21(lambda::Float64)
-        mp = copy(model2_pars)
-        [mp[k] += lambda*model1_pars[k] for k in keys(mp)]
+        model2_mod = NucleotideModel(model2.motifs, model2.forces .+ model1.forces .* lambda)
         if fast
-            return EvalLogZFast(mp, L)
+            return EvalLogZFast(model2_mod, L)
         else
-            return EvalLogZ(mp, L)    
+            return EvalLogZ(model2_mod, L)    
         end
     end        
     ave_E2_1 = -FiniteDiff.finite_difference_derivative(LambdaEvalLogZ12, 0.)
     ave_E1_2 = -FiniteDiff.finite_difference_derivative(LambdaEvalLogZ21, 0.)    
     if fast
-        logZ1 = EvalLogZFast(model1_pars, L)
-        logZ2 = EvalLogZFast(model2_pars, L)
+        logZ1 = EvalLogZFast(model1, L)
+        logZ2 = EvalLogZFast(model2, L)
         S1 = ComputeEntropy(L, model1, fast=true)
         S2 = ComputeEntropy(L, model2, fast=true)        
     else
-        logZ1 = EvalLogZ(model1_pars, L)
-        logZ2 = EvalLogZ(model2_pars, L)
+        logZ1 = EvalLogZ(model1, L)
+        logZ2 = EvalLogZ(model2, L)
         S1 = ComputeEntropy(L, model1, fast=false)
         S2 = ComputeEntropy(L, model2, fast=false)   
     end

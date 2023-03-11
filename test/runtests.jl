@@ -12,12 +12,27 @@ nts = ["A","C","G","T"]
 ########################################################
 ########################################################
 @testset verbose=true "MaxEntNucleotideBiases tests" begin
+    ########################################################
     println("Running preliminary computations...")
+    println("(using $(Threads.nthreads()) threads for sampling)") 
     testseq5000 = (testseq^3)[1:5000] # if a sequence too short is used the fact that the gauge freedoom is exact only 
                                       # for L->\infty creates some issues for the i=3 case during testing
                                       # (things that should be >0 are about -0.005 or so).
     max_loglik_mods = [MaxEntNucleotideBiases.ModelFit(testseq5000, i) for i in 1:3]
+    
+    samples = Vector{String}[]
+    for i in 1:3
+        t_sample = [String[], String[]]
+            Threads.@threads for j in 1:2
+                t_sample[j] = MaxEntNucleotideBiases.MetropolisSampling(5000, max_loglik_mods[i], 
+                                                Nsamples=2500, Nsteps=5000, Ntherm=50000, beta=1.)
+            end
+        t_sample = vcat(t_sample...)
+        push!(samples, t_sample)
+    end
+
     println("Done! Starting tests.")
+    ########################################################
 
     # simple test to see that main functions run correctly
     @testset "random uniform sequences" begin
@@ -62,7 +77,7 @@ nts = ["A","C","G","T"]
     @testset "checks on sampling and inference" begin
         for i in 1:3
             max_loglik_model = max_loglik_mods[i]
-            sample = MaxEntNucleotideBiases.MetropolisSampling(5000, max_loglik_model, Nsamples=5000, Nsteps=5000, Ntherm=50000, beta=1.)
+            sample = samples[i]
             for m in max_loglik_model.motifs
                 c1 = count(m, testseq5000, overlap=true)
                 c2 = mean(count.(m, sample, overlap=true))
@@ -80,8 +95,8 @@ nts = ["A","C","G","T"]
             @testset "same sequence multiple times" for m in keys(max_loglik_model)
                 @test multiseq_model[m] ≈ max_loglik_model[m] atol=0.001
             end
-
-            sample = MaxEntNucleotideBiases.MetropolisSampling(5000, max_loglik_mods[i], Nsamples=100, Nsteps=5000, Ntherm=50000, beta=1.)
+            # test if using sample sequences from the same model gives a similar result
+            sample = samples[i]
             multiseq_model = MaxEntNucleotideBiases.ForcesDict(MaxEntNucleotideBiases.ModelFit([testseq5000 for _ in 1:10], i, 5000))
             @testset "multiple sampled sequences" for m in keys(max_loglik_model)
                 @test multiseq_model[m] ≈ max_loglik_model[m] atol=0.05
