@@ -92,18 +92,19 @@ method.
 function compute_logz(model::NucleotideModel, L::Int)
     TM = generate_transfer_matrix(model)
     TM_last = generate_transfer_matrix_last(model)
-    log_factors = 0
+    log_factors = 0.
+    K = 10
+    nK = norm(TM^K)
+    lnK = log(nK)
+    TMK = TM^K
     tP = copy(TM_last)
-    for i in 1:(L-3)
-        if i%10 == 0 
-            f = norm(tP)
-            log_factors += log(f)
-            tP = TM * tP * (1/f)
-        else
-            tP = TM * tP
-        end
+    for _ in 1:(L-2)÷K
+        log_factors += lnK
+        tP = TMK * tP * (1/nK)
     end
-    tP = TM * tP
+    for _ in 1:(L-2)%K
+        tP = TM * tP
+    end
     return log(tr(tP)) + log_factors
 end
 
