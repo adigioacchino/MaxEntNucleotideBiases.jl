@@ -1,11 +1,11 @@
 """
-    GenerateTM(model::NucleotideModel)
+    generate_transfer_matrix(model::NucleotideModel)
 
 Return the trasfer matrix used for the computation of the
 partition function. The first index correspond to the left-most nucleotide,
 the last index to the right-most one.
 """
-function GenerateTM(model::NucleotideModel)
+function generate_transfer_matrix(model::NucleotideModel)
     if model.Lmotifs == 2
         kmers = [a*b for a in dna_alphabet, b in dna_alphabet]
         p1t = sum(
@@ -39,13 +39,13 @@ end
 
 
 """
-    GenerateTMLast(model::NucleotideModel)
+    generate_transfer_matrix_last(model::NucleotideModel)
 
 Return the last transfer matrix used for the computation of the
 partition function. The first index correspond to the left-most nucleotide,
 the last index to the right-most one.
 """
-function GenerateTMLast(model::NucleotideModel)
+function generate_transfer_matrix_last(model::NucleotideModel)
     if model.Lmotifs == 2
         kmers = [a*b for a in dna_alphabet, b in dna_alphabet]
         k1mers = [b  for _ in dna_alphabet, b in dna_alphabet]
@@ -84,14 +84,14 @@ end
 
 
 """
-    EvalLogZ(model::NucleotideModel, L::Int)
+    compute_logz(model::NucleotideModel, L::Int)
 
 Compute the partition function of a model of length L through the transfer matrix
 method.
 """
-function EvalLogZ(model::NucleotideModel, L::Int)
-    TM = GenerateTM(model)
-    TM_last = GenerateTMLast(model)
+function compute_logz(model::NucleotideModel, L::Int)
+    TM = generate_transfer_matrix(model)
+    TM_last = generate_transfer_matrix_last(model)
     log_factors = 0
     tP = copy(TM_last)
     for i in 1:(L-3)
@@ -109,12 +109,12 @@ end
 
 
 """
-    EvalLogZFast(model::NucleotideModel, L::Int)
+    compute_logz_fast(model::NucleotideModel, L::Int)
 
 Compute the partition function of a model of length L by taking the real part of
 the largest eigenvalue of the transfer matrix.
 """
-function EvalLogZFast(model::NucleotideModel, L::Int)
-    TM = GenerateTM(model)
+function compute_logz_fast(model::NucleotideModel, L::Int)
+    TM = generate_transfer_matrix(model)
     return L * log(maximum(real.(eigvals(TM))))
 end

@@ -21,11 +21,11 @@ module MaxEntNucleotideBiases
     NucleotideModel(mots::Vector{<:AbstractString}, fors::Vector{<:Number}) = NucleotideModel(mots, fors, maximum(length.(mots)))
 
     """
-        ForcesDict(model::NucleotideModel)
+        get_forces_dict(model::NucleotideModel)
 
     Return a dictionary of the form motif => force.
     """
-    function ForcesDict(model::NucleotideModel)
+    function get_forces_dict(model::NucleotideModel)
         Dict(zip(model.motifs, model.forces))
     end
 

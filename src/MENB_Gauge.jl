@@ -2,25 +2,25 @@
 # a more general scenario, where an arbitrary number of parameters associated to k-mers is fixed to 0, can be in principle done.
 
 """
-    GaugeMaskVariables(motifs::Vector{String})
+    gauge_mask_variables(motifs::Vector{String})
 
 This function returns a Array{Bool} corresponding to motifs that have to be inferred after
 all motifs containing Ts are fixed to 0 thanks to gauge transformations.
 """
-function GaugeMaskVariables(motifs::Vector{String})
+function gauge_mask_variables(motifs::Vector{String})
     return [(!occursin("T", m) | (length(m)==3 && m[1] != 'T' && m[2] == 'T' && m[3] != 'T')) for m in motifs]
 end
 
 
 """
-    ZerosumGauge(model_pars::NucleotideModel)
+    gauge_zerosum(model_pars::NucleotideModel)
     
 This function takes as input a dictionary describing the parmeters of a model
 and changes the gauge into the "zero-sum" gauge.
 """
-function ZerosumGauge(model::NucleotideModel)
-    model_pars = ForcesDict(model)
-    new_pars = ForcesDict(model)
+function gauge_zerosum(model::NucleotideModel)
+    model_pars = get_forces_dict(model)
+    new_pars = get_forces_dict(model)
     kmax = model.Lmotifs
     ##############
     #### k=3

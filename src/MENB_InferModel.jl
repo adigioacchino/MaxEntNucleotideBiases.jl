@@ -1,10 +1,10 @@
 """
-    _PreprocessSeqs(seqs_in::Vector{String})
+    _preprocess_seqs(seqs_in::Vector{String})
 
 Pre-process the vector of sequences `seqs_in`, so that sequences only contains letters A, C, G, T.
 The pre-processed sequence vector is the returned.
 """
-function _PreprocessSeqs(seqs_in::Vector{String})
+function _preprocess_seqs(seqs_in::Vector{String})
     seqs_out = [replace(s, "U" => "T") for s in seqs_in]
     for s in seqs_out
         unique_nt_counts = sum([count(m, s) for m in dna_alphabet])
@@ -18,20 +18,20 @@ end
     
     
 """
-    _ComputeNObs(seqs::Vector{String}, independent_motifs::Vector{String}, L::Int)
+    _compute_nobs(seqs::Vector{String}, independent_motifs::Vector{String}, L::Int)
     
 For each motif in `independent_motifs`, compute the number of observed motifs in each sequence
 in `seqs`, then divide by the sequence length, take the average of these intensive fractions
 over the sequences, and multiply by the model length L.
 """
-function _ComputeNObs(seqs::Vector{String}, independent_motifs::Vector{String}, L::Int)
+function _compute_nobs(seqs::Vector{String}, independent_motifs::Vector{String}, L::Int)
     Lseqs = length.(seqs)
     return L .* [mean(count.(m, seqs, overlap=true) ./ Lseqs) for m in independent_motifs]    
 end
     
     
 """
-    ModelFit(seqs::Union{Vector{String}, String}, Lmotifs::Int, Lmodel::Union{Int,Missing}=missing; 
+    fitmodel(seqs::Union{Vector{String}, String}, Lmotifs::Int, Lmodel::Union{Int,Missing}=missing; 
                   add_pseudocount::Bool=false, tolerance::Float64=0.01, max_iter::Int=100, 
                   verbose::Bool=false, fast::Union{Bool,String}="auto", ZS_gauge::Bool=true)
 
@@ -59,11 +59,11 @@ used to solve the system of equations.
 `ZS_gauge` specifies whether the result has to be put in the zero sum gauge
 before being returned.
 """
-function ModelFit(seqs::Union{Vector{String}, String}, Lmotifs::Int, Lmodel::Union{Int,Missing}=missing; 
+function fitmodel(seqs::Union{Vector{String}, String}, Lmotifs::Int, Lmodel::Union{Int,Missing}=missing; 
                   add_pseudocount::Bool=false, tolerance::Float64=0.01, max_iter::Int=100, 
                   verbose::Bool=false, fast::Union{Bool,String}="auto", ZS_gauge::Bool=true)
     (typeof(seqs) == String) ? (pre_seqs_dna = [seqs]) : (pre_seqs_dna = seqs)
-    seqs_dna = _PreprocessSeqs(pre_seqs_dna)
+    seqs_dna = _preprocess_seqs(pre_seqs_dna)
     # compute sequence length
     if ismissing(Lmodel)
         if all(length.(seqs_dna) .== length(seqs_dna[1]))
@@ -105,25 +105,25 @@ function ModelFit(seqs::Union{Vector{String}, String}, Lmotifs::Int, Lmodel::Uni
         println("max motif length is 3, exiting...")
         return
     end
-    gaugemask = GaugeMaskVariables(all_motifs)
+    gaugemask = gauge_mask_variables(all_motifs)
     independent_motifs = all_motifs[gaugemask]
     dependent_motifs = all_motifs[.!gaugemask]
 
     # compute n_obs for each non-masked motif, add pseudocounts if add_pseudocount
-    n_obs = _ComputeNObs(seqs_dna, independent_motifs, L)
+    n_obs = _compute_nobs(seqs_dna, independent_motifs, L)
     if add_pseudocount
         n_obs = [x+1 for x in n_obs]
     end   
     
     # prepare for inference: "closure" of eval_logZ -> here the sorting of x is important, 
     #    it is the one defined at the definition of independent_motifs 
-    function ClosedEvalLogZ(x::Vector{Float64})
+    function closed_compute_logz(x::Vector{Float64})
         mots = [independent_motifs; dependent_motifs]
         fors = [x; zeros(length(dependent_motifs))]
         if fast_bool
-            return EvalLogZFast(NucleotideModel(mots, fors), L)
+            return compute_logz_fast(NucleotideModel(mots, fors), L)
         else
-            return EvalLogZ(NucleotideModel(mots, fors), L)    
+            return compute_logz(NucleotideModel(mots, fors), L)    
         end
     end
     
@@ -134,7 +134,7 @@ function ModelFit(seqs::Union{Vector{String}, String}, Lmotifs::Int, Lmodel::Uni
         vars = zeros(sum(gaugemask))
         [vars[i] = log(n_obs[i] / L) - log(n_obs_T / L) for i in 1:3]
     elseif Lmotifs == 3 # use as starting point the solution with Lmotifs == 2
-        L2ress = ForcesDict(ModelFit(seqs_dna, 2, L; add_pseudocount=true,
+        L2ress = get_forces_dict(fitmodel(seqs_dna, 2, L; add_pseudocount=true,
                             tolerance=0.01, max_iter=100, verbose=false, fast=true))
         independent_motifs2 = [m for m in independent_motifs if length(m) < 3]
         vars = [[L2ress[m] for m in independent_motifs2];
@@ -147,11 +147,11 @@ function ModelFit(seqs::Union{Vector{String}, String}, Lmotifs::Int, Lmodel::Uni
             println("Starting iteration $(l)...")
             flush(stdout)
         end
-        ns = FiniteDiff.finite_difference_gradient(ClosedEvalLogZ, vars)
+        ns = FiniteDiff.finite_difference_gradient(closed_compute_logz, vars)
         if maximum(abs.(n_obs .- ns)) <= tolerance
             break
         end
-        dn = FiniteDiff.finite_difference_hessian(ClosedEvalLogZ, vars)
+        dn = FiniteDiff.finite_difference_hessian(closed_compute_logz, vars)
         delta = inv(dn) * (n_obs .- ns)
         vars .+= delta
     end
@@ -160,7 +160,7 @@ function ModelFit(seqs::Union{Vector{String}, String}, Lmotifs::Int, Lmodel::Uni
     mots = [independent_motifs; dependent_motifs]
     fors = [vars; zeros(length(dependent_motifs))]
     if ZS_gauge
-        res = ZerosumGauge(NucleotideModel(mots, fors))
+        res = gauge_zerosum(NucleotideModel(mots, fors))
     else
         res = NucleotideModel(mots, fors)
     end
