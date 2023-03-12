@@ -2,6 +2,7 @@ using MaxEntNucleotideBiases
 using Test
 using Random
 using Statistics
+using Scratch
 
 ########################################################
 # useful variables
@@ -149,4 +150,19 @@ nts = ["A","C","G","T"]
         end
     end
 
+    # test model write/read
+    @testset "model IO" begin
+        dir = get_scratch!("test_IO")
+        for i in 1:3
+            mod = max_loglik_mods[i]
+            fpath = joinpath(dir, "tempfile.txt")
+            MaxEntNucleotideBiases.writemodel(fpath, mod)
+            @test readdir(dir) == ["tempfile.txt"]
+            mod2 = MaxEntNucleotideBiases.readmodel(fpath)
+            @test all(mod.motifs .== mod2.motifs)
+            @test all(mod.forces .== mod2.forces)
+            @test all(mod.Lmotifs .== mod2.Lmotifs)
+            delete_scratch!("test_IO")
+        end
+    end
 end

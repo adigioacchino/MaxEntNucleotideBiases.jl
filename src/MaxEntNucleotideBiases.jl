@@ -29,6 +29,36 @@ module MaxEntNucleotideBiases
         Dict(zip(model.motifs, model.forces))
     end
 
+    """
+        writemodel(fname::AbstractString, model::NucleotideModel)
+
+    Write `model` to `fname`.
+    """
+    function writemodel(fname::AbstractString, model::NucleotideModel)
+        open(fname,"w") do f
+            for m in model.motifs
+                write(f, "$(m) ")
+            end
+            write(f, "\n")
+            for p in model.forces
+                write(f, "$(p) ")
+            end
+        end
+    end
+
+    """
+        readmodel(fname::AbstractString)
+
+    Read `file` (that should have been written by `writemodel`) 
+    to get a NucleotideModel, which is returned.
+    """
+    function readmodel(fname::AbstractString)
+        lines = readlines(fname)
+        motifs = split(lines[1])
+        forces = parse.(Float64, split(lines[2]))
+        return NucleotideModel(motifs, forces)
+    end
+
 
     include("MENB_PartitionFunction.jl") # functions to compute the partition function
     include("MENB_Gauge.jl") # functions to deal with the gauge degrees of freedom
