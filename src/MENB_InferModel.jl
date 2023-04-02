@@ -32,7 +32,7 @@ end
     
 """
     fitmodel(seqs::Union{Vector{String}, String}, Lmotifs::Int, Lmodel::Union{Int,Missing}=missing; 
-                  add_pseudocount::Bool=false, tolerance::Float64=0.01, max_iter::Int=100, 
+                  pseudocount_param::Float64=0.0, tolerance::Float64=0.01, max_iter::Int=100, 
                   verbose::Bool=false, fast::Union{Bool,String}="auto", ZS_gauge::Bool=true)
 
 Fit the model parameters, which are:
@@ -45,8 +45,8 @@ sequences of constant length (or if it is String and not a vector), the default 
 will use the sequences length as `Lmodel`; otherwise, the default behaviour is to take
 `Lmodel` = 5000.
 
-If `add_pseudocount`, a single pseudocount is added for each observed number of
-nucleotides and dinucleotides.
+`pseudocount_param` is the fraction of weigth coming from random uniform sequences
+in the computation of the motif's frequences from the data.
 
 If `fast`, the partition function is estimated through the top eigenvalue of the
 transfer matrix alone (much faster, but slightly less precise, expecially
@@ -60,7 +60,7 @@ used to solve the system of equations.
 before being returned.
 """
 function fitmodel(seqs::Union{Vector{String}, String}, Lmotifs::Int, Lmodel::Union{Int,Missing}=missing; 
-                  add_pseudocount::Bool=false, tolerance::Float64=0.01, max_iter::Int=100, 
+                  pseudocount_param::Float64=0.0, tolerance::Float64=0.01, max_iter::Int=100, 
                   verbose::Bool=false, fast::Union{Bool,String}="auto", ZS_gauge::Bool=true)
     (typeof(seqs) == String) ? (pre_seqs_dna = [seqs]) : (pre_seqs_dna = seqs)
     seqs_dna = _preprocess_seqs(pre_seqs_dna)
@@ -111,8 +111,10 @@ function fitmodel(seqs::Union{Vector{String}, String}, Lmotifs::Int, Lmodel::Uni
 
     # compute n_obs for each non-masked motif, add pseudocounts if add_pseudocount
     n_obs = _compute_nobs(seqs_dna, independent_motifs, L)
-    if add_pseudocount
-        n_obs = [x+1 for x in n_obs]
+    # add pseudocounts
+    for i in 1:length(n_obs)
+        len_motif = length(independent_motifs[i])
+        n_obs[i] = (n_obs[i] + L * pseudocount_param / 4^len_motif) / (1 + pseudocount_param)
     end   
     
     # prepare for inference: "closure" of eval_logZ -> here the sorting of x is important, 
@@ -134,7 +136,7 @@ function fitmodel(seqs::Union{Vector{String}, String}, Lmotifs::Int, Lmodel::Uni
         vars = zeros(sum(gaugemask))
         [vars[i] = log(n_obs[i] / L) - log(n_obs_T / L) for i in 1:3]
     elseif Lmotifs == 3 # use as starting point the solution with Lmotifs == 2
-        L2ress = get_forces_dict(fitmodel(seqs_dna, 2, L; add_pseudocount=true,
+        L2ress = get_forces_dict(fitmodel(seqs_dna, 2, L; pseudocount_param=pseudocount_param,
                             tolerance=0.01, max_iter=100, verbose=false, fast=true))
         independent_motifs2 = [m for m in independent_motifs if length(m) < 3]
         vars = [[L2ress[m] for m in independent_motifs2];
