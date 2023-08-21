@@ -61,13 +61,13 @@ Finally, we can compute several interesting quantities:
 ```@repl fit_models
 L = 1000;
 seq = join(rand(["A","C","G","T"], L));
-MaxEntNucleotideBiases.compute_minus_energy(mod3, seq)
+MaxEntNucleotideBiases.compute_minus_energy(seq, mod3)
 ```
 - the log-likelihood of any sequence with a given model, with the `compute_loglikelihood` function:
 ```@repl fit_models
 L = 1000;
 seq = join(rand(["A","C","G","T"], L));
-MaxEntNucleotideBiases.compute_loglikelihood(mod2, seq)
+MaxEntNucleotideBiases.compute_loglikelihood(seq, mod2)
 ```
 
 ### Gauge choices
