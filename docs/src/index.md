@@ -122,7 +122,7 @@ MaxEntNucleotideBiases.sample_metropolis(L, mod3,
 The model inference can take some time, so it can be useful to save the model on disk and load it later.
 This can be done with the `save_model` and `load_model` functions:
 ```julia    
-MaxEntNucleotideBiases.writemodel(mod3, "mod3.menb")
+MaxEntNucleotideBiases.writemodel("mod3.menb", mod3)
 mod3 = MaxEntNucleotideBiases.readmodel("mod3.menb")
 ```
 
