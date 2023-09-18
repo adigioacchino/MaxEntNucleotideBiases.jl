@@ -34,9 +34,30 @@ nts = ["A","C","G","T"]
 
     println("Done! Starting tests.")
     ########################################################
+    
+    # test that the constructors work as expected
+    @testset "checks on NucleotideModel constructor" begin
+        for i in 1:3
+            mod = max_loglik_mods[i]
+            all_motifs = mod.motifs
+            all_forces = mod.forces
+            some_motifs = all_motifs[1:end-2] 
+            some_forces = all_forces[1:end-2]
+            new_mod = MaxEntNucleotideBiases.NucleotideModel(some_motifs, some_forces)
+            @test sort(new_mod.motifs) == sort(all_motifs)
+            new_fors_dict = MaxEntNucleotideBiases.get_forces_dict(new_mod)
+            orig_fors_dict = MaxEntNucleotideBiases.get_forces_dict(mod)
+            for m in some_motifs
+                @test new_fors_dict[m] == orig_fors_dict[m]
+            end
+            for m in all_motifs[end-1:end]
+                @test new_fors_dict[m] == 0.
+            end
+        end
+    end
 
     # simple test to see that main functions run correctly
-    @testset "random uniform sequences" begin
+    @testset "checks on random uniform sequences inference" begin
         randseq = join(rand(Xoshiro(0), nts, 5_000_000))
         mod1 = MaxEntNucleotideBiases.get_forces_dict(MaxEntNucleotideBiases.fitmodel(randseq, 1, 5000))
         for k in keys(mod1)

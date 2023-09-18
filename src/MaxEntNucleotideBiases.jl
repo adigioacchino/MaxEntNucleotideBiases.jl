@@ -15,7 +15,20 @@ module MaxEntNucleotideBiases
         function NucleotideModel(mots::Vector{<:AbstractString}, fors::Vector{<:Number}, Lmots::Int)
             (maximum(length.(mots)) != Lmots) && error("inconsistent Lmotifs")
             (length(mots) != length(fors)) && error("inconsistent number of motifs and forces")
-            return new(mots, fors, Lmots)
+            # set to zero the forces of the motifs of length up to Lmots that are not in mots
+            all_mots = copy(mots)
+            all_fors = copy(fors)
+            for l in 1:Lmots
+                mots_mat = collect(Iterators.product([dna_alphabet for _ in 1:l]...))
+                mots_list = join.([mots_mat...])
+                for m in mots_list
+                    if !(m in mots)
+                        push!(all_mots, m)
+                        push!(all_fors, 0.0)
+                    end
+                end
+            end
+            return new(all_mots, all_fors, Lmots)
         end
     end
     NucleotideModel(mots::Vector{<:AbstractString}, fors::Vector{<:Number}) = NucleotideModel(mots, fors, maximum(length.(mots)))
