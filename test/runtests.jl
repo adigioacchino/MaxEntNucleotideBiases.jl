@@ -73,6 +73,20 @@ nts = ["A","C","G","T"]
         end
     end
 
+    # test for model fitting from frequences directly
+    @testset "checks fit from frequences" begin
+        for k in 1:3
+            forcedict = MaxEntNucleotideBiases.get_forces_dict(max_loglik_mods[k])
+            all_mots = vcat([join.([collect(Iterators.product([nts for _ in 1:kk]...))...]) for kk in 1:k]...)
+            all_freqs = MaxEntNucleotideBiases._compute_freqs([testseq5000], all_mots)
+            t_mod = MaxEntNucleotideBiases.fitmodel(all_freqs, all_mots, 5000, ZS_gauge=false)
+            t_forcedict = MaxEntNucleotideBiases.get_forces_dict(t_mod)
+            for m in all_mots
+                @test forcedict[m] ≈ t_forcedict[m] atol=0.001
+            end
+        end
+    end
+
     # take a sequence, infer a model, do variation of all parameters, check that loglik is lower
     @testset "checks on loglikelihoods" begin
         for i in 1:3

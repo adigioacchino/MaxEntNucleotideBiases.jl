@@ -18,17 +18,16 @@ end
     
     
 """
-    _compute_nobs(seqs::Vector{String}, independent_motifs::Vector{String}, L::Int)
+    _compute_freqs(seqs::Vector{String}, motifs::Vector{String})
     
-For each motif in `independent_motifs`, compute the number of observed motifs in each sequence
-in `seqs`, then divide by the sequence length, take the average of these intensive fractions
-over the sequences, and multiply by the model length L.
+For each motif in `motifs`, compute the frequency of observed motifs in each sequence
+in `seqs`, then divide by the sequence length and take the average of these intensive 
+fractions over the sequences.
 """
-function _compute_nobs(seqs::Vector{String}, independent_motifs::Vector{String}, L::Int)
+function _compute_freqs(seqs::Vector{String}, motifs::Vector{String})
     Lseqs = length.(seqs)
-    return L .* [mean(count.(m, seqs, overlap=true) ./ Lseqs) for m in independent_motifs]    
+    return [mean(count.(m, seqs, overlap=true) ./ Lseqs) for m in motifs]    
 end
-    
     
 """
     fitmodel(seqs::Union{Vector{String}, String}, Lmotifs::Int, Lmodel::Union{Int,Missing}=missing; 
@@ -77,6 +76,29 @@ function fitmodel(seqs::Union{Vector{String}, String}, Lmotifs::Int, Lmodel::Uni
         L = Lmodel
     end
     
+    mots_list = vcat([join.([collect(Iterators.product([dna_alphabet for _ in 1:k]...))...]) for k in 1:Lmotifs]...)
+    freqs_obs = _compute_freqs(seqs_dna, mots_list)
+
+    return fitmodel(freqs_obs, mots_list, L; pseudocount_param, tolerance, max_iter, 
+                    verbose, fast, ZS_gauge)
+end
+
+
+"""
+    fitmodel(freqs::Vector{<:Number}, motifs::Vector{String}, L::Int=5000; 
+    pseudocount_param::Float64=0.0, tolerance::Float64=0.01, max_iter::Int=100, 
+    verbose::Bool=false, fast::Union{Bool,String}="auto", ZS_gauge::Bool=true)
+
+Fit the model parameters directly from the frequencies `freqs` of the motifs `motifs`.
+The other parameters are the same as for the function that takes as input the sequences
+directly, and are documented above.
+"""
+function fitmodel(freqs::Vector{<:Number}, motifs::Vector{String}, L::Int=5000; 
+    pseudocount_param::Float64=0.0, tolerance::Float64=0.01, max_iter::Int=100, 
+    verbose::Bool=false, fast::Union{Bool,String}="auto", ZS_gauge::Bool=true)
+    
+    Lmotifs = maximum(length.(motifs))
+
     # deal with pre_fast=auto
     if typeof(fast) == String && fast != "auto"
         println("`fast` must be a Bool, or the string 'auto'.")
@@ -89,9 +111,7 @@ function fitmodel(seqs::Union{Vector{String}, String}, Lmotifs::Int, Lmodel::Uni
 
     # compute all motifs and gaugemaks array
     if Lmotifs == 1 # only in this case, the gauge will be set so that the sum of the exp of the fields is 1
-        Lseqs = length.(seqs)
-        n_freqs = [mean(count.(m, seqs_dna, overlap=true) ./ Lseqs) for m in dna_alphabet]
-        return NucleotideModel(dna_alphabet, log.(n_freqs))
+        return NucleotideModel(motifs, log.(freqs))
     elseif Lmotifs == 2
         all_motifs = [[a for a in dna_alphabet]; 
                       [a*b for a in dna_alphabet for b in dna_alphabet]
@@ -110,7 +130,9 @@ function fitmodel(seqs::Union{Vector{String}, String}, Lmotifs::Int, Lmodel::Uni
     dependent_motifs = all_motifs[.!gaugemask]
 
     # compute n_obs for each non-masked motif, add pseudocounts if add_pseudocount
-    n_obs = _compute_nobs(seqs_dna, independent_motifs, L)
+    freqs_dict = Dict(zip(motifs, freqs))
+    n_obs = [freqs_dict[m] .* L for m in independent_motifs] 
+
     # add pseudocounts
     for i in 1:length(n_obs)
         len_motif = length(independent_motifs[i])
@@ -131,12 +153,13 @@ function fitmodel(seqs::Union{Vector{String}, String}, Lmotifs::Int, Lmodel::Uni
     
     # inference: starting point
     if Lmotifs == 2 # use as starting point the solution with Lmotifs == 1
-        Lseqs = length.(seqs)
-        n_obs_T = L * mean(count.("T", seqs_dna, overlap=true) ./ Lseqs)
+        n_obs_T = freqs_dict["T"] * L
         vars = zeros(sum(gaugemask))
         [vars[i] = log(n_obs[i] / L) - log(n_obs_T / L) for i in 1:3]
     elseif Lmotifs == 3 # use as starting point the solution with Lmotifs == 2
-        L2ress = get_forces_dict(fitmodel(seqs_dna, 2, L; pseudocount_param=pseudocount_param,
+        motifs2pts = vcat([join.([collect(Iterators.product([dna_alphabet for _ in 1:k]...))...]) for k in 1:2]...)
+        freqs2pts = [freqs_dict[m] for m in motifs2pts]
+        L2ress = get_forces_dict(fitmodel(freqs2pts, motifs2pts, L; pseudocount_param=pseudocount_param,
                             tolerance=0.01, max_iter=100, verbose=false, fast=true))
         independent_motifs2 = [m for m in independent_motifs if length(m) < 3]
         vars = [[L2ress[m] for m in independent_motifs2];
