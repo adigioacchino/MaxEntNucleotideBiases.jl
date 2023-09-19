@@ -1,7 +1,7 @@
 name = "MaxEntNucleotideBiases"
 uuid = "ba169fff-afb3-4cd8-8134-b6404ad67c04"
 authors = ["Andrea Di Gioacchino"]
-version = "0.5.2"
+version = "1.1.0"
 
 [deps]
 FiniteDiff = "6a86dc24-6348-571c-b903-95158fe2bd41"
@@ -10,4 +10,4 @@ Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 
 [compat]
 FiniteDiff = "2"
-julia = "1.8"
+julia = "1.9"
